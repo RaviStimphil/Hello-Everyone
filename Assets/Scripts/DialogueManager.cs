@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.EventSystems;
 using System.Linq;
 using UnityEngine.UI;
 using Ink.Runtime;
@@ -23,7 +24,7 @@ public class DialogueManager : MonoBehaviour
     public static event Action dialogueEnds;
 
     public GameObject[] choices;
-    
+    public bool cheapFix;
 
 
     private TextMeshProUGUI[] choicesText;
@@ -39,8 +40,9 @@ public class DialogueManager : MonoBehaviour
         PlayerController.interactPressed -= StoryControl;
     }
     void Awake(){
-        inkJSONSource = new GameObject();
+        inkJSONSource = null;
         inkJSON = new TextAsset();
+        inkJSON = null;
         dialogueIsPlaying = false;
         //dialoguePanel.SetActive(false);
     }
@@ -64,17 +66,29 @@ public class DialogueManager : MonoBehaviour
         
     }
     public void StoryControl(){
+        if(inkJSON == null){
+            return;
+        }
         if(!dialogueIsPlaying){
             EnterDialogueMode();
-        }  else{
-            ContinueStory();
+        }  
+        /*else if(!cheapFix){
+            cheapFix = true;
+        }*/
+            else{
+            if(currentStory.currentChoices.Count == 0){
+                ContinueStory();
+            }
+            
         }
     }
     public void EnterDialogueMode(){
         currentStory = new Story(inkJSON.text);
         dialogueIsPlaying = true;
         dialoguePanel.SetActive(true);
+        dialogueText.text = currentStory.currentText;
         dialogueBegins?.Invoke();
+        
         ContinueStory();
     }
     public void ExitDialogueMode(){
@@ -82,10 +96,11 @@ public class DialogueManager : MonoBehaviour
         dialogueIsPlaying = false;
         dialoguePanel.SetActive(false);
         dialogueText.text = "";
+        cheapFix = false;
     }
 
     public void ContinueStory(){
-        if(currentStory.canContinue){
+        if(currentStory.canContinue){ 
             dialogueText.text = currentStory.Continue();
             
         }else{
@@ -122,6 +137,7 @@ public class DialogueManager : MonoBehaviour
         for(int i = index; i < choices.Length; i++){
             choices[i].gameObject.SetActive(false);
         }
+        StartCoroutine(SelectFirstChoice());
     }
 
     public void MakeChoice(int choiceIndex){
@@ -129,5 +145,11 @@ public class DialogueManager : MonoBehaviour
         currentStory.ChooseChoiceIndex(choiceIndex);
         ContinueStory();
         
+    }
+
+    public IEnumerator SelectFirstChoice(){
+        EventSystem.current.SetSelectedGameObject(null);
+        yield return null;
+        EventSystem.current.SetSelectedGameObject(choices[0].gameObject);
     }
 }
